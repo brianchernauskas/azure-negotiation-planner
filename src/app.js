@@ -77,6 +77,8 @@ function collectStep(step) {
     state.commitUtilization = document.getElementById('commit-utilization').value;
     state.onpremLicenses = [...document.querySelectorAll('#onprem-licenses input:checked')].map(i => i.value);
     state.eaPricingLevel = document.getElementById('ea-pricing-level')?.value || '';
+    state.m365Reclamation = document.getElementById('m365-reclamation')?.value || '';
+    state.cspOpenness = document.getElementById('csp-openness')?.value || '';
     state.supportTier = document.getElementById('support-tier').value;
   }
   if (step === 3) {
@@ -177,6 +179,12 @@ function getLeverageScore(s) {
   const relMap = { strategic: 10, strong: 8, moderate: 5, poor: 2, none: 0 };
   score += relMap[s.relationshipQuality] ?? 3;
   score += s.expansionPlans.length * 2;
+  // M365 shelfware — reclamation pass increases negotiating baseline
+  if (s.m365Reclamation === 'never') score -= 4;
+  if (s.m365Reclamation === 'recent') score += 5;
+  // CSP openness — separating Azure from M365 adds leverage
+  if (s.cspOpenness === 'open') score += 8;
+  if (s.cspOpenness === 'currently-csp') score += 4;
   return Math.min(Math.round(score), 100);
 }
 
@@ -426,6 +434,20 @@ function buildTactics(s, tier) {
     });
   }
 
+  if (s.m365Reclamation === 'never' && tier >= 1) {
+    tactics.push({
+      title: 'Run an M365 License Reclamation Pass Before Renewal',
+      desc: 'Unused M365 licenses ("shelfware") inflate the seat count Microsoft uses as your pricing baseline. Practitioners report 7–19% of licenses are unused in estates that have never been audited. Before entering any renewal conversation, pull your 90-day active user data from the Microsoft 365 Admin Center, deprovision unused seats, and present the corrected count at the negotiating table — this directly reduces the baseline and your committed spend.',
+      impact: 'high',
+    });
+  }
+  if (s.cspOpenness === 'open' || s.cspOpenness === 'unknown') {
+    tactics.push({
+      title: 'Evaluate CSP for Azure to Create Structural Leverage',
+      desc: 'Separating your Azure MACC into a CSP (Cloud Solution Provider) relationship — while keeping M365 wherever the best deal lands — is an emerging high-value tactic. CSP partner economics can yield 8–15% effective discount on Azure vs. direct MCA-E, and introducing CSP as a credible option creates real leverage in your direct Microsoft negotiation even if you don\'t ultimately switch. Request CSP pricing from 2–3 Microsoft partners before your renewal meeting.',
+      impact: 'high',
+    });
+  }
   // Copilot leverage — Microsoft's #1 priority
   if (!expandingCopilot) {
     tactics.push({
@@ -744,6 +766,12 @@ function buildAlerts(s, tier) {
   }
   if (s.eaPricingLevel === 'unknown' && s.contractType === 'ea') {
     alerts.push({ type: 'warning', icon: '⚠️', text: '<strong>Identify your EA Pricing Level before negotiating.</strong> Microsoft eliminated automatic volume discount levels (B/C/D) in late 2025. Ask your account team what level you are currently on — if it\'s B, C, or D, you are at risk of a 6–12% cost increase at renewal if you don\'t renegotiate explicitly.' });
+  }
+  if (s.m365Reclamation === 'never' && tier >= 2) {
+    alerts.push({ type: 'warning', icon: '📋', text: '<strong>M365 License Shelfware Risk.</strong> Practitioners report 7–19% of M365 licenses are unused in estates that have never run a reclamation pass. Microsoft uses your current licensed seat count as the baseline for renewal pricing — reclaim unused licenses before renewal to reduce that baseline and lower your committed spend. This is one of the highest-ROI pre-negotiation actions available.' });
+  }
+  if (s.cspOpenness === 'open') {
+    alerts.push({ type: 'success', icon: '🟢', text: '<strong>CSP Split Strategy Available.</strong> Separating your Azure MACC into a CSP relationship (while keeping M365 direct or vice versa) is an emerging high-value tactic — CSP partner economics can add 8–15% effective discount on Azure spend vs. direct MCA-E. Present this as a credible alternative in your first Microsoft negotiation meeting to create leverage on the direct deal.' });
   }
   return alerts;
 }

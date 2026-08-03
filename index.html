@@ -238,6 +238,26 @@
             </select>
           </div>
           <div class="form-group">
+            <label for="m365-reclamation">M365 License Reclamation Pass</label>
+            <select id="m365-reclamation">
+              <option value="">Select…</option>
+              <option value="recent">Yes — ran reclamation in the past 12 months</option>
+              <option value="never">No — never run a reclamation pass</option>
+              <option value="partial">Partial — some teams only</option>
+              <option value="na">Not applicable — no M365 / small footprint</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="csp-openness">Azure via CSP (Channel Partner) Consideration</label>
+            <select id="csp-openness">
+              <option value="">Select…</option>
+              <option value="open">Open to CSP for Azure (separating from M365)</option>
+              <option value="direct-only">Prefer direct with Microsoft only</option>
+              <option value="currently-csp">Already on CSP</option>
+              <option value="unknown">Not sure / haven't evaluated</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label for="support-tier">Current Microsoft Support Tier</label>
             <select id="support-tier">
               <option value="">Select support tier…</option>
