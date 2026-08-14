@@ -25,8 +25,8 @@ function validateStep(step) {
   const required = {
     1: ['industry', 'growth-rate', 'azure-tenure', 'contract-type'],
     2: ['annual-spend', 'total-ms-spend', 'spend-growth', 'renewal-timeline'],
-    3: ['workload-type', 'regions', 'optimization-status', 'migration-status'],
-    4: ['relationship-quality', 'negotiation-goals'],
+    3: ['workload-type', 'optimization-status', 'migration-status'],
+    4: ['relationship-quality'],
   };
   let ok = true;
   (required[step] || []).forEach(id => {
@@ -84,7 +84,6 @@ function collectStep(step) {
   if (step === 3) {
     state.useCases = [...document.querySelectorAll('#use-cases .selected')].map(c => c.dataset.value);
     state.workloadType = document.getElementById('workload-type').value;
-    state.regions = document.getElementById('regions').value;
     state.hybridBenefitStatus = document.getElementById('hybrid-benefit-status').value;
     state.optimizationStatus = document.getElementById('optimization-status').value;
     state.migrationStatus = document.getElementById('migration-status').value;
@@ -92,10 +91,7 @@ function collectStep(step) {
   if (step === 4) {
     state.multicloud = document.querySelector('#multicloud .selected')?.dataset.value;
     state.relationshipQuality = document.getElementById('relationship-quality').value;
-    state.previousNegotiation = document.getElementById('previous-negotiation').value;
     state.expansionPlans = [...document.querySelectorAll('#expansion-plans input:checked')].map(i => i.value);
-    state.negotiationGoals = document.getElementById('negotiation-goals').value;
-    state.internalChampion = document.getElementById('internal-champion').value;
     state.eaConcern = document.getElementById('ea-concern').value;
   }
 }
@@ -201,6 +197,9 @@ function getLeverageScore(s) {
   score += timingMap[s.renewalTimeline] ?? 5;
   const relMap = { strategic: 10, strong: 8, moderate: 5, poor: 2, none: 0 };
   score += relMap[s.relationshipQuality] ?? 3;
+  // Tenure (0–5) — parity with the AWS planner's treatment
+  const tenureMap = { '5plus': 5, '3-5': 4, '1-3': 2, 'new': 0 };
+  score += tenureMap[s.azureTenure] ?? 2;
   score += s.expansionPlans.length * 2;
   // M365 shelfware — reclamation pass increases negotiating baseline
   if (s.m365Reclamation === 'never') score -= 4;
@@ -395,6 +394,9 @@ function discountBreakdownHTML(s, tier, discount) {
   const azureTier = SPEND_TIERS[s.annualSpend]?.tier ?? 0;
   if (msTier > azureTier) rows.push(['Total Microsoft account value exceeds Azure spend alone', '+2–6%', 'green']);
   if (s.growthRate === 'hypergrowth' || s.growthRate === 'fast') rows.push(['High-growth trajectory (future revenue argument)', '+1–3%', 'green']);
+  if (s.spendGrowth === 'hypergrowth' || s.spendGrowth === 'fast') rows.push(['Azure consumption growing fast (expanding footprint)', '+1–3%', 'green']);
+  else if (s.spendGrowth === 'declining') rows.push(['Azure consumption declining — weakens the growth argument', '−2–4%', 'red']);
+  if (s.azureTenure === '5plus') rows.push(['Long-tenured customer (switching cost is real to Microsoft)', '+0–2%', 'green']);
   if (s.commitUtilization === 'over100') rows.push(['Exceeded prior commitment (strong trust signal)', '+1–2%', 'green']);
   if (s.commitUtilization === 'under70') rows.push(['Prior shortfall — Microsoft may resist higher discount', '−2–5%', 'red']);
   if (!rows.length) return '';
@@ -612,13 +614,35 @@ function buildTactics(s, tier) {
     });
   }
 
+  // Growth narrative — mirrors the AWS planner's treatment of the same signal
+  if (s.growthRate === 'hypergrowth' || s.growthRate === 'fast' || s.spendGrowth === 'hypergrowth' || s.spendGrowth === 'fast') {
+    tactics.push({
+      title: 'Build a Growth Narrative with Documented Projections',
+      desc: 'Microsoft discounts today\'s spend but underwrites tomorrow\'s. Bring a three-year Azure projection backed by business data — headcount plans, product roadmap, data-center exit timeline — and commit at a level that reflects where you are heading rather than where you are. A higher committed number unlocks a better MACC tier, and a documented projection is what makes that number defensible internally as well as to Microsoft.',
+      impact: 'medium',
+    });
+  } else if (s.spendGrowth === 'declining') {
+    tactics.push({
+      title: 'Commit Conservatively Against a Declining Baseline',
+      desc: 'Your Azure consumption is falling, which means any MACC sized on historical spend will be underconsumed — and shortfall is your liability, not Microsoft\'s. Size the commitment to a defensible floor, not to last year\'s run rate. Be direct with the account team about the trajectory: a smaller commitment you will actually meet is a better outcome than a larger one that triggers a true-up penalty.',
+      impact: 'high',
+    });
+  }
+
   tactics.push({
     title: 'Establish Your BATNA Before the First Microsoft Meeting',
     desc: 'Know your Best Alternative before any negotiation begins: Can you extend month-to-month? Convert to CSP temporarily? Move a workload to AWS? Having a realistic walk-away prevents signing bad terms under pressure. Never disclose your BATNA to Microsoft — simply signal it exists through your competitive evaluation activity.',
     impact: 'low',
   });
 
-  return tactics.slice(0, 10);
+  // Sort by impact before capping. Without this, a high-impact tactic added
+  // late in the function is silently dropped while a low-impact early one survives.
+  const rank = { high: 0, medium: 1, low: 2 };
+  return tactics
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => (rank[a.t.impact] ?? 1) - (rank[b.t.impact] ?? 1) || a.i - b.i)
+    .map(x => x.t)
+    .slice(0, 12);
 }
 
 // ─── Timeline ─────────────────────────────────────────────────────────────────
@@ -736,6 +760,9 @@ function buildRisks(s, tier) {
   }
   if (s.optimizationStatus === 'unoptimized') {
     risks.push({ level: 'medium', title: 'Inflated MACC Baseline', desc: 'Committing to unoptimized spend locks in waste at discounted rates. Apply Hybrid Benefit and Advisor recommendations first.' });
+  }
+  if (s.spendGrowth === 'declining') {
+    risks.push({ level: 'medium', title: 'Declining Azure Consumption', desc: 'Falling Azure spend materially weakens your position — Microsoft allocates its best commercial terms to accounts that are growing. Size the MACC to your realistic floor rather than to historical spend, and shift the conversation toward the workloads you are adding rather than defending the ones you are losing.' });
   }
   risks.push({ level: 'medium', title: 'Auto-Renewal Clauses', desc: 'EA and MACC agreements often auto-renew at current (or worse) terms without explicit notice. Negotiate a 90-day renewal window requirement.' });
   if (tier <= 1) {
