@@ -77,6 +77,7 @@ function collectStep(step) {
     state.commitUtilization = document.getElementById('commit-utilization').value;
     state.onpremLicenses = [...document.querySelectorAll('#onprem-licenses input:checked')].map(i => i.value);
     state.eaPricingLevel = document.getElementById('ea-pricing-level')?.value || '';
+    state.eaAnniversary = document.getElementById('ea-anniversary')?.value || '';
     state.m365Reclamation = document.getElementById('m365-reclamation')?.value || '';
     state.cspOpenness = document.getElementById('csp-openness')?.value || '';
     state.supportTier = document.getElementById('support-tier').value;
@@ -298,6 +299,11 @@ function buildStrategyHTML(s) {
     </div>
 
     <div class="strategy-section">
+      <div class="section-header"><span class="section-icon">🔒</span><h3>Price Protection: EA vs MCA-E</h3><span class="section-badge">${priceProtectionBadge(s)}</span></div>
+      <div class="section-content">${priceProtectionHTML(s, tier)}</div>
+    </div>
+
+    <div class="strategy-section">
       <div class="section-header"><span class="section-icon">🎯</span><h3>Negotiation Tactics — Ranked by Impact</h3><span class="section-badge blue">${tactics.length} tactics</span></div>
       <div class="section-content">
         <div class="tactics-list">${tactics.map((t, i) => `
@@ -446,6 +452,96 @@ function vehicleGuideHTML(s, tier) {
   </table>`;
 }
 
+// ─── Price protection (EA vs MCA-E) ──────────────────────────────────────────
+// Microsoft began moving MACC customers off the EA toward MCA-E from March 2026.
+// The EA's automatic price lock does not transfer, which is the single largest
+// and least-visible cost of that migration.
+function priceProtectionBadge(s) {
+  if (s.contractType === 'ea') return 'Protected — for now';
+  if (s.contractType === 'mca' || s.contractType === 'mca-e' || s.contractType === 'csp') return 'Exposed';
+  return 'No protection';
+}
+
+function priceProtectionHTML(s, tier) {
+  const onEA = s.contractType === 'ea';
+  const onMCA = s.contractType === 'mca' || s.contractType === 'mca-e';
+  const onCSP = s.contractType === 'csp';
+
+  const rows = [
+    ['Automatic price lock for the term', 'Yes — 3 years', 'No', 'No'],
+    ['New seats added at locked price', 'Yes', 'No — at prevailing rate', 'No — at prevailing rate'],
+    ['Shielded from the July 2026 M365 increase', 'Yes, if term began before it', 'No', 'No'],
+    ['Mid-term unit price changes possible', 'No', 'Yes', 'Yes'],
+    ['Quantities reducible', 'At renewal only', 'Varies by term', 'At subscription renewal'],
+    ['Renewal creates a negotiation moment', 'Yes — fixed renewal date', 'Weaker — evergreen structure', 'Annual'],
+  ];
+
+  let lead;
+  if (onEA) {
+    lead = `<div class="alert alert-success" style="margin-bottom:14px;"><span class="alert-icon">🔒</span><div><strong>You currently hold the strongest price protection Microsoft offers.</strong> Your EA holds list price at signature for the full term, and new seats are added at that locked rate. If your term began before July 1, 2026, the global Microsoft 365 price increase does not reach you until renewal. Treat this protection as an asset with an expiry date — the migration to MCA-E is where it is lost, and Microsoft will not price that loss for you.</div></div>`;
+  } else if (onMCA) {
+    lead = `<div class="alert alert-danger" style="margin-bottom:14px;"><span class="alert-icon">🚨</span><div><strong>You have no automatic price protection.</strong> MCA-E allows Microsoft to update unit rates during your term, and the July 2026 Microsoft 365 increase applies to you without the EA's shielding. A price protection addendum is the single highest-value item to secure, and it exists only if you negotiate it explicitly into the document.</div></div>`;
+  } else if (onCSP) {
+    lead = `<div class="alert alert-warning" style="margin-bottom:14px;"><span class="alert-icon">⚠️</span><div><strong>CSP annual subscriptions carry no price lock.</strong> Partner economics can still deliver a better net rate than direct MCA-E, but rate stability is not part of the package. Ask your partner what they can contractually commit to on rate stability for the term, in writing, rather than assuming annual pricing holds.</div></div>`;
+  } else {
+    lead = `<div class="alert alert-warning" style="margin-bottom:14px;"><span class="alert-icon">⚠️</span><div><strong>No vehicle-level price protection applies to your current arrangement.</strong> Price protection is a property of the EA specifically. If rate stability matters for budgeting, it becomes a negotiated term rather than something the vehicle provides.</div></div>`;
+  }
+
+  const migrationNote = onEA
+    ? `<div class="alert alert-warning" style="margin-top:14px;"><span class="alert-icon">📋</span><div><strong>If Microsoft proposes moving you to MCA-E, price the protection you would be giving up.</strong> From March 2026 Microsoft began migrating EA customers on MACC plans to MCA-E ahead of renewal, and the EA is increasingly reserved for its largest customers. The migration is often presented as administrative modernisation. It is not: the automatic price lock, the fixed renewal negotiation moment, and locked pricing on added seats all fall away. If the move is unavoidable, the price protection addendum and a fixed rate card are what you trade for agreeing to it.</div></div>`
+    : `<div class="alert alert-info" style="margin-top:14px;"><span class="alert-icon">ℹ️</span><div><strong>Price protection is negotiable, not automatic.</strong> Ask for an addendum stating unit rates will not increase during the commitment term, naming the specific SKUs it covers. Microsoft resists blanket locks but will often fix rates on a named subset where the workload or seat count matters to them.</div></div>`;
+
+  const table = `<table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+    <thead><tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:8px;color:var(--text-secondary);">Protection</th>
+      <th style="text-align:center;padding:8px;color:var(--text-secondary);">EA</th>
+      <th style="text-align:center;padding:8px;color:var(--text-secondary);">MCA-E</th>
+      <th style="text-align:center;padding:8px;color:var(--text-secondary);">CSP</th>
+    </tr></thead>
+    <tbody>${rows.map(([factor, ea, mcae, csp]) => `
+      <tr style="border-bottom:1px solid var(--surface-3);">
+        <td style="padding:9px 8px;color:var(--text-primary);">${factor}</td>
+        <td style="padding:9px 8px;text-align:center;${onEA ? 'font-weight:700;' : ''}">${ea}</td>
+        <td style="padding:9px 8px;text-align:center;${onMCA ? 'font-weight:700;' : ''}">${mcae}</td>
+        <td style="padding:9px 8px;text-align:center;${onCSP ? 'font-weight:700;' : ''}">${csp}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+
+  return lead + table + migrationNote + earlyRenewalHTML(s, tier);
+}
+
+// Early-renewal window. An EA anniversary that lands before the renewal date is
+// an opportunity to carry locked pricing forward past a list price increase.
+function earlyRenewalHTML(s, tier) {
+  if (s.contractType !== 'ea') return '';
+  const ann = s.eaAnniversary;
+  if (!ann || ann === 'na') return '';
+
+  if (ann === 'unknown') {
+    return `<div class="alert alert-info" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>Confirm your EA anniversary date before anything else.</strong> It determines whether an early renewal can carry your locked pricing past the July 2026 increase, and it is the one input this recommendation depends on. Your Microsoft account team or reseller can confirm it in a single email.</div></div>`;
+  }
+
+  if (ann === 'passed') {
+    return `<div class="alert alert-warning" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>Your anniversary has just passed — the early-renewal window for this cycle has closed.</strong> The action now is to confirm in writing which rates are locked for the remainder of your term and when the next anniversary falls, then diarise the early-renewal conversation for 4–6 months ahead of it. Also verify that any seats added since the anniversary were billed at your locked rate rather than prevailing list.</div></div>`;
+  }
+
+  const urgency = ann === 'within-3mo' ? 'danger' : ann === '3-6mo' ? 'warning' : 'info';
+  const timing = ann === 'within-3mo'
+    ? 'Your anniversary is inside 3 months, which is tight but still actionable — Microsoft can process an early renewal or term extension faster than a full renegotiation.'
+    : ann === '3-6mo'
+      ? 'A 3–6 month runway is a workable window for an early renewal or term extension.'
+      : 'A 6–12 month runway is the ideal window — enough time to model the commitment properly and to treat the extension as a negotiation rather than a scramble.';
+
+  const scaleNote = tier >= 3
+    ? 'At your spend level this is worth quantifying formally: model your committed quantities at locked rates against the same quantities at current list, and carry that delta into the conversation as the value of extending.'
+    : 'Model your committed quantities at locked rates against current list pricing so you can see whether the extension is worth the commitment it requires.';
+
+  return `<div class="alert alert-${urgency}" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>Early-renewal opportunity — act before your anniversary.</strong> ${timing} An EA holds list price at signature, so renewing early or extending the term can carry your current locked pricing forward past the July 2026 Microsoft 365 increase rather than absorbing it at your scheduled renewal. ${scaleNote}
+  <div style="margin-top:9px;">Two cautions. First, an extension is not a rollover: previously negotiated discounts do not automatically carry forward, so treat it as a renegotiation and confirm every discount in the new paperwork. Second, your EA auto-renews 30–90 days before expiry, and Microsoft will propose a new Azure Monetary Commitment based on trailing-12-month consumption — reported to inflate commitments 15–30% above historical average. Open the early-renewal conversation before that proposal arrives, because it anchors everything that follows.</div>
+  <div style="margin-top:9px;font-size:.8rem;color:var(--text-muted);">Exposure figures above come from advisory-firm reporting rather than Microsoft published terms. Verify against your own contract and invoices before presenting them.</div></div></div>`;
+}
+
 // ─── Tactics ──────────────────────────────────────────────────────────────────
 function buildTactics(s, tier) {
   const tactics = [];
@@ -557,6 +653,24 @@ function buildTactics(s, tier) {
       title: 'Negotiate an Explicit Price Protection Clause in Your MCA-E',
       desc: 'Unlike the EA, MCA-E has no automatic 3-year price lock. Microsoft can update product terms — including pricing — dynamically. You must negotiate a price protection addendum explicitly stating that unit rates won\'t increase during your commitment term. Without this clause in writing, any unit price increase flows through to your bill regardless of your MACC commitment.',
       impact: 'medium',
+    });
+  }
+
+  // Early renewal to carry locked EA pricing past a list price increase
+  if (s.contractType === 'ea' && ['within-3mo', '3-6mo', '6-12mo'].includes(s.eaAnniversary)) {
+    tactics.push({
+      title: 'Renew Early to Carry Your Locked EA Pricing Forward',
+      desc: 'Your EA holds list price at signature for the full term, which means an early renewal or term extension agreed before your anniversary can carry current pricing past the July 2026 Microsoft 365 increase instead of absorbing it at your scheduled renewal. This is a narrow, dated opportunity rather than a standing option. Two conditions make it worth doing: the extension must be treated as a renegotiation, because previously negotiated discounts do not carry forward automatically, and it must be opened before the auto-renewal proposal arrives 30–90 days out — that proposal sets a new Azure Monetary Commitment from trailing-12-month consumption and anchors the entire conversation once it lands.',
+      impact: 'high',
+    });
+  }
+
+  // Price protection when the EA lock does not apply
+  if (s.contractType === 'mca' || s.contractType === 'mca-e' || s.contractType === 'csp') {
+    tactics.push({
+      title: 'Price the Protection You Lost Leaving the EA',
+      desc: 'The EA is the only Microsoft vehicle where price protection is automatic. On MCA-E or CSP, unit rates can move during your term and the July 2026 Microsoft 365 increase applies without shielding. Quantify that exposure explicitly — your committed quantities at prior locked rates against the same quantities at current list — and use the number as the basis for demanding a price protection addendum naming the SKUs it covers. Microsoft resists blanket locks but routinely fixes rates on named subsets where the seat count or workload matters to them.',
+      impact: 'high',
     });
   }
 
@@ -729,6 +843,10 @@ function buildConcessions(s, tier) {
     items.push({ icon: '🤖', title: 'Azure OpenAI / AI Credits', desc: 'Service-specific credits for Azure OpenAI Service and Azure ML workloads.', priority: 'should' });
   }
   items.push({ icon: '🔁', title: 'No Auto-Renewal Lock-in', desc: 'Require 90-day notice window before renewal; explicit renegotiation right at each anniversary.', priority: 'should' });
+  if (s.contractType === 'ea') {
+    items.push({ icon: '📅', title: 'Locked-Rate Carry-Forward on Extension', desc: 'Written confirmation of exactly which rates carry forward if you extend or renew early, naming the SKUs — extensions do not preserve prior discounts automatically.', priority: 'must' });
+    items.push({ icon: '🔐', title: 'Price Lock Equivalent on Any MCA-E Move', desc: 'If Microsoft migrates you off the EA, a contractual replacement for the automatic 3-year price lock, agreed as a condition of the migration rather than after it.', priority: 'must' });
+  }
   items.push({ icon: '👩‍💻', title: 'Microsoft FastTrack / ProServ', desc: 'Funded architecture reviews, well-architected framework reviews, and migration guidance hours.', priority: tier >= 3 ? 'should' : 'nice' });
   items.push({ icon: '🎓', title: 'Training & Certification Credits', desc: 'Microsoft Learn credits and Azure certification exam vouchers for your team.', priority: 'nice' });
   if (s.msProducts.includes('m365') || s.expansionPlans.includes('m365-expand')) {
@@ -748,6 +866,12 @@ function buildRisks(s, tier) {
   }
   if (s.contractType === 'mca' || s.contractType === 'mca-e') {
     risks.push({ level: 'high', title: 'No Price Lock in MCA-E by Default', desc: 'Microsoft can change unit rates dynamically in MCA-E. Demand a price protection addendum in writing before signing.' });
+  }
+  if (s.contractType === 'ea') {
+    risks.push({ level: 'high', title: 'EA Price Lock Does Not Survive Migration to MCA-E', desc: 'Microsoft began moving EA customers on MACC plans to MCA-E from March 2026. The automatic 3-year price lock, locked pricing on added seats, and the fixed renewal negotiation moment are all EA-specific and do not transfer. Price that loss before agreeing to the move.' });
+  }
+  if (s.contractType === 'ea' && ['within-3mo', '3-6mo'].includes(s.eaAnniversary)) {
+    risks.push({ level: 'medium', title: 'Early-Renewal Window Closing', desc: 'Your anniversary is near. Once it passes, the opportunity to carry locked pricing forward past the July 2026 increase is gone until the next cycle, and any seats added after it may be billed at prevailing list rather than your locked rate.' });
   }
   if (s.renewalTimeline === 'within-1mo') {
     risks.push({ level: 'high', title: 'Negotiating Under Deadline', desc: 'Urgency is Microsoft\'s advantage. Request a 60–90 day extension before signing anything.' });
@@ -784,6 +908,11 @@ function buildQuestions(s, tier) {
   ];
   if (s.contractType === 'mca' || s.contractType === 'mca-e') qs.push('Since MCA-E has no automatic price lock, what is the process to add a price stability addendum, and who needs to approve it?');
   if (s.contractType === 'ea') qs.push('If we extend this EA rather than signing a new one, do our previously negotiated discounts carry forward automatically — and can you show us that in the agreement language?');
+  if (s.contractType === 'ea' && ['within-3mo', '3-6mo', '6-12mo'].includes(s.eaAnniversary)) {
+    qs.push('If we renew early or extend the term before our anniversary, which of our current rates carry forward, and does that shield us from the July 2026 Microsoft 365 increase for the new term?');
+    qs.push('What Azure Monetary Commitment will you propose at auto-renewal, and what consumption period is it calculated from?');
+  }
+  if (s.contractType === 'ea') qs.push('If Microsoft moves us from EA to MCA-E, what replaces the automatic 3-year price lock, and will you commit that replacement to writing?');
   qs.push('What are the exact shortfall mechanics — if we miss our annual MACC by 15%, how is the difference calculated and billed?');
   qs.push('What ramp provisions can you offer for the first two quarters of the commitment period?');
   if (s.msProducts.includes('m365') || s.expansionPlans.includes('m365-expand')) qs.push('If we commit to upgrading our M365 seats from E3 to E5 in this same agreement, what additional Azure ACD improvement does that unlock?');
@@ -822,6 +951,16 @@ function buildAlerts(s, tier) {
   }
   if (s.eaPricingLevel === 'unknown' && s.contractType === 'ea') {
     alerts.push({ type: 'warning', icon: '⚠️', text: '<strong>Identify your EA Pricing Level before negotiating.</strong> Microsoft eliminated automatic volume discount levels (B/C/D) in late 2025. Ask your account team what level you are currently on — if it\'s B, C, or D, you are at risk of a 6–12% cost increase at renewal if you don\'t renegotiate explicitly.' });
+  }
+  if (s.contractType === 'ea' && ['within-3mo', '3-6mo', '6-12mo'].includes(s.eaAnniversary)) {
+    const window = s.eaAnniversary === 'within-3mo' ? 'inside 3 months' : s.eaAnniversary === '3-6mo' ? '3–6 months out' : '6–12 months out';
+    alerts.push({ type: s.eaAnniversary === 'within-3mo' ? 'danger' : 'warning', icon: '📅', text: `<strong>Early-Renewal Window Open — anniversary is ${window}.</strong> Your EA holds list price at signature, so renewing early or extending the term before your anniversary can carry current pricing past the July 2026 Microsoft 365 increase instead of absorbing it at your scheduled renewal. Open this conversation before the auto-renewal proposal lands 30–90 days out — that proposal resets your Azure Monetary Commitment from trailing-12-month consumption and anchors everything after it. Treat any extension as a renegotiation: prior discounts do not carry forward on their own.` });
+  }
+  if (s.contractType === 'ea' && s.eaAnniversary === 'unknown') {
+    alerts.push({ type: 'info', icon: '📅', text: '<strong>Confirm your EA anniversary date.</strong> It determines whether an early renewal can carry your locked pricing past the July 2026 increase. Your account team or reseller can confirm it in one email, and the answer changes what you should do next.' });
+  }
+  if (s.contractType === 'ea' && tier >= 3) {
+    alerts.push({ type: 'info', icon: '🔒', text: '<strong>Your EA price lock is an asset with an expiry date.</strong> From March 2026 Microsoft began migrating EA customers on MACC plans to MCA-E ahead of renewal, and the EA is increasingly reserved for its largest accounts. MCA-E carries no automatic price lock, no locked pricing on added seats, and no fixed renewal negotiation moment. If Microsoft proposes the move, the price protection addendum is what you trade for agreeing to it — not an afterthought to paper later.' });
   }
   if (s.m365Reclamation === 'never' && tier >= 2) {
     alerts.push({ type: 'warning', icon: '📋', text: '<strong>M365 License Shelfware Risk.</strong> Practitioners report 7–19% of M365 licenses are unused in estates that have never run a reclamation pass. Microsoft uses your current licensed seat count as the baseline for renewal pricing — reclaim unused licenses before renewal to reduce that baseline and lower your committed spend. This is one of the highest-ROI pre-negotiation actions available.' });
