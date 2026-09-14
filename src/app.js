@@ -110,6 +110,7 @@ document.querySelectorAll('.use-case-card').forEach(card => {
 });
 
 function generateStrategy() {
+  document.body.classList.remove('is-sample');
   if (!validateStep(4)) return;
   collectStep(4);
   document.getElementById('strategy-output').innerHTML = buildStrategyHTML(state);
@@ -855,6 +856,8 @@ function buildConcessions(s, tier) {
   if (s.compliance.includes('fedramp') || s.industry === 'government') {
     items.push({ icon: '🛡️', title: 'GovCloud / Compliance Advisory', desc: 'Dedicated FedRAMP compliance support and government cloud architecture guidance included.', priority: 'should' });
   }
+  items.push({ icon: '📌', title: 'Pricing Schedule Freeze', desc: "EA and MCA-E terms routinely reference Microsoft’s published price lists rather than printing rates. Pin every such reference to a dated snapshot so meter pricing cannot change mid-term without a signed amendment.", priority: 'must' });
+  items.push({ icon: '📉', title: 'Price-Down (MFN) Trigger', desc: "If Microsoft reduces published rates on any Azure meter you consume, the lower rate applies automatically within 30 days with your negotiated discount still stacked on top.", priority: 'should' });
   return items;
 }
 
@@ -972,4 +975,79 @@ function buildAlerts(s, tier) {
     alerts.push({ type: 'info', icon: '🌍', text: '<strong>Regional AI Foundry deployments cost more than global.</strong> Since September 1, 2026, Microsoft prices Azure AI Foundry model deployments outside the default global region at a premium — EU Data Zone +9%, other regional deployments +7–16%, and the new APAC Data Zone +20% above Global list. If any planned AI/ML consumption is pinned to a specific region for compliance or latency, size your MACC or EA commitment off the regional rate, not the global one.' });
   }
   return alerts;
+}
+
+// ─── Sample output ──────────────────────────────────────────────────────────
+// A fixed, illustrative client profile so advisors can show what the planner
+// produces without filling in the form. Kept deliberately consistent across the
+// AWS, Azure, GCP, and Salesforce planners.
+const SAMPLE_PROFILE = "Mid-market SaaS company · $10M–$25M annual Azure spend";
+const SAMPLE_STATE = {
+  "industry": "saas",
+  "growthRate": "moderate",
+  "spendGrowth": "moderate",
+  "renewalTimeline": "6-12mo",
+  "desiredTerm": "3yr",
+  "commitUtilization": "85-100",
+  "workloadType": "mixed",
+  "optimizationStatus": "partially",
+  "relationshipQuality": "moderate",
+  "compliance": [
+    "sox"
+  ],
+  "companySize": "midmarket",
+  "azureTenure": "3-5",
+  "contractType": "ea",
+  "msProducts": [
+    "m365",
+    "power-platform"
+  ],
+  "annualSpend": "10m-25m",
+  "totalMsSpend": "10m-25m",
+  "onpremLicenses": [
+    "windows-server",
+    "sql-server"
+  ],
+  "eaPricingLevel": "level-a",
+  "eaAnniversary": "6-12mo",
+  "m365Reclamation": "partial",
+  "cspOpenness": "unknown",
+  "supportTier": "unified",
+  "useCases": [
+    "compute",
+    "containers",
+    "databases",
+    "analytics"
+  ],
+  "hybridBenefitStatus": "partially",
+  "migrationStatus": "in-progress",
+  "multicloud": "azure-primary",
+  "expansionPlans": [
+    "copilot-adopt"
+  ],
+  "eaConcern": "price-lock"
+};
+
+function sampleBannerHTML() {
+  return `<div class="sample-banner" role="note">
+    <span class="sample-tag">SAMPLE</span>
+    <div><strong>Sample output — illustrative data, not a client analysis.</strong>
+    Generated from a fixed example profile: ${SAMPLE_PROFILE}, 3-year term, renewal 6–12 months out.
+    Proxima deal calibration data is excluded. Use <em>Edit Inputs</em> to build a real strategy.</div>
+  </div>`;
+}
+
+function showSample() {
+  Object.keys(state).forEach(k => delete state[k]);
+  Object.assign(state, JSON.parse(JSON.stringify(SAMPLE_STATE)));
+  // Never let real logged deals appear inside sample output.
+  const realInsight = getProximaInsight;
+  getProximaInsight = () => null;
+  try {
+    document.getElementById('strategy-output').innerHTML = sampleBannerHTML() + buildStrategyHTML(state);
+  } finally {
+    getProximaInsight = realInsight;
+  }
+  document.body.classList.add('is-sample');
+  goToStep(5);
 }
