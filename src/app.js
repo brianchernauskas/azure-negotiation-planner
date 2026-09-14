@@ -968,5 +968,8 @@ function buildAlerts(s, tier) {
   if (s.cspOpenness === 'open') {
     alerts.push({ type: 'success', icon: '🟢', text: '<strong>CSP Split Strategy Available.</strong> Separating your Azure MACC into a CSP relationship (while keeping M365 direct or vice versa) is an emerging high-value tactic — CSP partner economics can add 8–15% effective discount on Azure spend vs. direct MCA-E. Present this as a credible alternative in your first Microsoft negotiation meeting to create leverage on the direct deal.' });
   }
+  if (s.useCases.includes('ai-ml')) {
+    alerts.push({ type: 'info', icon: '🌍', text: '<strong>Regional AI Foundry deployments cost more than global.</strong> Since September 1, 2026, Microsoft prices Azure AI Foundry model deployments outside the default global region at a premium — EU Data Zone +9%, other regional deployments +7–16%, and the new APAC Data Zone +20% above Global list. If any planned AI/ML consumption is pinned to a specific region for compliance or latency, size your MACC or EA commitment off the regional rate, not the global one.' });
+  }
   return alerts;
 }
