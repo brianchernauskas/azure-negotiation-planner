@@ -78,6 +78,7 @@ function collectStep(step) {
     state.onpremLicenses = [...document.querySelectorAll('#onprem-licenses input:checked')].map(i => i.value);
     state.eaPricingLevel = document.getElementById('ea-pricing-level')?.value || '';
     state.eaAnniversary = document.getElementById('ea-anniversary')?.value || '';
+    state.eaTermStart = document.getElementById('ea-term-start')?.value || '';
     state.m365Reclamation = document.getElementById('m365-reclamation')?.value || '';
     state.cspOpenness = document.getElementById('csp-openness')?.value || '';
     state.supportTier = document.getElementById('support-tier').value;
@@ -471,7 +472,7 @@ function priceProtectionHTML(s, tier) {
   const rows = [
     ['Automatic price lock for the term', 'Yes — 3 years', 'No', 'No'],
     ['New seats added at locked price', 'Yes', 'No — at prevailing rate', 'No — at prevailing rate'],
-    ['Shielded from the July 2026 M365 increase', 'Yes, if term began before it', 'No', 'No'],
+    ['July 2026 M365 increase', 'Deferred to renewal if term began before it', 'At next renewal', 'At next subscription renewal'],
     ['Mid-term unit price changes possible', 'No', 'Yes', 'Yes'],
     ['Quantities reducible', 'At renewal only', 'Varies by term', 'At subscription renewal'],
     ['Renewal creates a negotiation moment', 'Yes — fixed renewal date', 'Weaker — evergreen structure', 'Annual'],
@@ -512,35 +513,40 @@ function priceProtectionHTML(s, tier) {
   return lead + table + migrationNote + earlyRenewalHTML(s, tier);
 }
 
-// Early-renewal window. An EA anniversary that lands before the renewal date is
-// an opportunity to carry locked pricing forward past a list price increase.
+// EA term start and anniversary true-ups. The July 1, 2026 Microsoft 365
+// increase applies at the next renewal after that date, so an EA term that
+// began earlier holds pre-increase pricing until renewal. Renewing early now
+// brings the increase forward; the value lies in using the remaining term.
 function earlyRenewalHTML(s, tier) {
   if (s.contractType !== 'ea') return '';
+  const start = s.eaTermStart;
   const ann = s.eaAnniversary;
-  if (!ann || ann === 'na') return '';
+  const autoRenewNote = '<div style="margin-top:9px;">Separately, your EA auto-renews 30–90 days before expiry, and Microsoft will propose a new Azure Monetary Commitment based on trailing-12-month consumption, reported to inflate commitments 15–30% above historical average. Size the commitment yourself and open the renewal conversation before that proposal arrives, because it anchors everything that follows. Previously negotiated discounts do not carry forward on their own at renewal or extension; confirm every one in the new paperwork.</div>';
+  const sourceNote = '<div style="margin-top:9px;font-size:.8rem;color:var(--text-muted);">Commitment inflation figures come from advisory-firm reporting rather than Microsoft published terms. Verify against your own contract and invoices before presenting them.</div>';
 
-  if (ann === 'unknown') {
-    return `<div class="alert alert-info" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>Confirm your EA anniversary date before anything else.</strong> It determines whether an early renewal can carry your locked pricing past the July 2026 increase, and it is the one input this recommendation depends on. Your Microsoft account team or reseller can confirm it in a single email.</div></div>`;
+  if (!start || start === 'na') return '';
+  if (start === 'unknown') {
+    return `<div class="alert alert-info" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>Confirm when your current EA term began.</strong> The July 1, 2026 Microsoft 365 increase applies at the next renewal after that date. If your term began earlier, you are still on pre-increase pricing, and renewing early would bring the increase forward. Your account team or reseller can confirm the term start and anniversary dates in one email.${autoRenewNote}</div></div>`;
   }
 
-  if (ann === 'passed') {
-    return `<div class="alert alert-warning" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>Your anniversary has just passed — the early-renewal window for this cycle has closed.</strong> The action now is to confirm in writing which rates are locked for the remainder of your term and when the next anniversary falls, then diarise the early-renewal conversation for 4–6 months ahead of it. Also verify that any seats added since the anniversary were billed at your locked rate rather than prevailing list.</div></div>`;
+  if (start === 'post-increase') {
+    return `<div class="alert alert-info" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>Your EA already reflects post-July 2026 pricing, and it is locked for the term.</strong> An early renewal gains nothing on price. Use anniversary true-ups to add genuinely needed seats at your locked rates, and treat the scheduled renewal as the negotiation moment.${autoRenewNote}${sourceNote}</div></div>`;
   }
 
-  const urgency = ann === 'within-3mo' ? 'danger' : ann === '3-6mo' ? 'warning' : 'info';
-  const timing = ann === 'within-3mo'
-    ? 'Your anniversary is inside 3 months, which is tight but still actionable — Microsoft can process an early renewal or term extension faster than a full renegotiation.'
-    : ann === '3-6mo'
-      ? 'A 3–6 month runway is a workable window for an early renewal or term extension.'
-      : 'A 6–12 month runway is the ideal window — enough time to model the commitment properly and to treat the extension as a negotiation rather than a scramble.';
-
+  // Pre-increase term: hold it, and use the true-ups.
+  const trueUp = ann === 'within-3mo'
+    ? 'Your next anniversary is inside 3 months, so the true-up is the near-term action: confirm which seats and upgrades you genuinely need over the next year and add them at locked pricing.'
+    : ann === '3-6mo' || ann === '6-12mo'
+      ? `Your next anniversary is ${ann === '3-6mo' ? '3–6' : '6–12'} months out, which is enough time to plan the true-up properly: confirm which seats and upgrades you genuinely need and add them at locked pricing then.`
+      : ann === 'passed'
+        ? 'Your anniversary has just passed. Verify that any seats added were billed at your locked rate rather than current list, and diarise planning for the next true-up.'
+        : 'Confirm your next anniversary date, since each true-up before renewal is a chance to add needed seats at locked pricing.';
   const scaleNote = tier >= 3
-    ? 'At your spend level this is worth quantifying formally: model your committed quantities at locked rates against the same quantities at current list, and carry that delta into the conversation as the value of extending.'
-    : 'Model your committed quantities at locked rates against current list pricing so you can see whether the extension is worth the commitment it requires.';
+    ? 'At your spend level, quantify the uplift waiting at renewal formally: your committed quantities at locked rates against the same quantities at current list. Open the renewal with that number, so it becomes a figure Microsoft has to offset rather than one you absorb.'
+    : 'Model your committed quantities at locked rates against current list, so you know the uplift waiting at renewal before Microsoft presents it.';
 
-  return `<div class="alert alert-${urgency}" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>Early-renewal opportunity — act before your anniversary.</strong> ${timing} An EA holds list price at signature, so renewing early or extending the term can carry your current locked pricing forward past the July 2026 Microsoft 365 increase rather than absorbing it at your scheduled renewal. ${scaleNote}
-  <div style="margin-top:9px;">Two cautions. First, an extension is not a rollover: previously negotiated discounts do not automatically carry forward, so treat it as a renegotiation and confirm every discount in the new paperwork. Second, your EA auto-renews 30–90 days before expiry, and Microsoft will propose a new Azure Monetary Commitment based on trailing-12-month consumption — reported to inflate commitments 15–30% above historical average. Open the early-renewal conversation before that proposal arrives, because it anchors everything that follows.</div>
-  <div style="margin-top:9px;font-size:.8rem;color:var(--text-muted);">Exposure figures above come from advisory-firm reporting rather than Microsoft published terms. Verify against your own contract and invoices before presenting them.</div></div></div>`;
+  return `<div class="alert alert-warning" style="margin-top:14px;"><span class="alert-icon">📅</span><div><strong>You are still on pre-increase pricing — do not renew early.</strong> Your EA term began before July 1, 2026, so the Microsoft 365 increase reaches you at renewal, not before. An early renewal, or a "modernisation" that re-papers the agreement, moves you onto current list sooner. Hold the term instead. ${trueUp} Only add what you will use; true-ups cannot be reduced until renewal. ${scaleNote}
+  <div style="margin-top:9px;">If renewal is close and you need more time, ask Microsoft in writing whether a term extension keeps your current price-list pricing until it ends, or triggers current list. Do not assume either answer.</div>${autoRenewNote}${sourceNote}</div></div>`;
 }
 
 // ─── Tactics ──────────────────────────────────────────────────────────────────
@@ -657,11 +663,11 @@ function buildTactics(s, tier) {
     });
   }
 
-  // Early renewal to carry locked EA pricing past a list price increase
-  if (s.contractType === 'ea' && ['within-3mo', '3-6mo', '6-12mo'].includes(s.eaAnniversary)) {
+  // Pre-increase EA pricing is worth holding to term end; renewing early forfeits it.
+  if (s.contractType === 'ea' && s.eaTermStart === 'pre-increase') {
     tactics.push({
-      title: 'Renew Early to Carry Your Locked EA Pricing Forward',
-      desc: 'Your EA holds list price at signature for the full term, which means an early renewal or term extension agreed before your anniversary can carry current pricing past the July 2026 Microsoft 365 increase instead of absorbing it at your scheduled renewal. This is a narrow, dated opportunity rather than a standing option. Two conditions make it worth doing: the extension must be treated as a renegotiation, because previously negotiated discounts do not carry forward automatically, and it must be opened before the auto-renewal proposal arrives 30–90 days out — that proposal sets a new Azure Monetary Commitment from trailing-12-month consumption and anchors the entire conversation once it lands.',
+      title: 'Hold Your Pre-Increase EA Pricing to Term End',
+      desc: 'Your EA term began before the July 1, 2026 Microsoft 365 increase, so you keep pre-increase pricing until renewal. Renewing early, or accepting a proposal that re-papers the agreement, moves you onto current list sooner. Instead, use each remaining anniversary true-up to add seats and upgrades you genuinely need at locked rates. Then open the renewal with the uplift already quantified, so it becomes a number Microsoft has to offset. If you need more time near renewal, get Microsoft\'s written answer on whether a term extension preserves current pricing before relying on one.',
       impact: 'high',
     });
   }
@@ -845,7 +851,7 @@ function buildConcessions(s, tier) {
   }
   items.push({ icon: '🔁', title: 'No Auto-Renewal Lock-in', desc: 'Require 90-day notice window before renewal; explicit renegotiation right at each anniversary.', priority: 'should' });
   if (s.contractType === 'ea') {
-    items.push({ icon: '📅', title: 'Locked-Rate Carry-Forward on Extension', desc: 'Written confirmation of exactly which rates carry forward if you extend or renew early, naming the SKUs — extensions do not preserve prior discounts automatically.', priority: 'must' });
+    items.push({ icon: '📅', title: 'Written Pricing Terms for Any Extension', desc: 'Written confirmation, naming the SKUs, of which price list and discounts apply during any term extension or renewal. Neither pre-increase pricing nor prior discounts carry forward automatically.', priority: 'must' });
     items.push({ icon: '🔐', title: 'Price Lock Equivalent on Any MCA-E Move', desc: 'If Microsoft migrates you off the EA, a contractual replacement for the automatic 3-year price lock, agreed as a condition of the migration rather than after it.', priority: 'must' });
   }
   items.push({ icon: '👩‍💻', title: 'Microsoft FastTrack / ProServ', desc: 'Funded architecture reviews, well-architected framework reviews, and migration guidance hours.', priority: tier >= 3 ? 'should' : 'nice' });
@@ -873,8 +879,8 @@ function buildRisks(s, tier) {
   if (s.contractType === 'ea') {
     risks.push({ level: 'high', title: 'EA Price Lock Does Not Survive Migration to MCA-E', desc: 'Microsoft began moving EA customers on MACC plans to MCA-E from March 2026. The automatic 3-year price lock, locked pricing on added seats, and the fixed renewal negotiation moment are all EA-specific and do not transfer. Price that loss before agreeing to the move.' });
   }
-  if (s.contractType === 'ea' && ['within-3mo', '3-6mo'].includes(s.eaAnniversary)) {
-    risks.push({ level: 'medium', title: 'Early-Renewal Window Closing', desc: 'Your anniversary is near. Once it passes, the opportunity to carry locked pricing forward past the July 2026 increase is gone until the next cycle, and any seats added after it may be billed at prevailing list rather than your locked rate.' });
+  if (s.contractType === 'ea' && s.eaTermStart === 'pre-increase') {
+    risks.push({ level: 'medium', title: 'Early Renewal Forfeits Pre-Increase Pricing', desc: 'Your term predates the July 2026 Microsoft 365 increase. Any early renewal or agreement re-papering, however it is framed, moves you onto current list before you need to be. Hold the term and use anniversary true-ups instead.' });
   }
   if (s.renewalTimeline === 'within-1mo') {
     risks.push({ level: 'high', title: 'Negotiating Under Deadline', desc: 'Urgency is Microsoft\'s advantage. Request a 60–90 day extension before signing anything.' });
@@ -911,8 +917,8 @@ function buildQuestions(s, tier) {
   ];
   if (s.contractType === 'mca' || s.contractType === 'mca-e') qs.push('Since MCA-E has no automatic price lock, what is the process to add a price stability addendum, and who needs to approve it?');
   if (s.contractType === 'ea') qs.push('If we extend this EA rather than signing a new one, do our previously negotiated discounts carry forward automatically — and can you show us that in the agreement language?');
-  if (s.contractType === 'ea' && ['within-3mo', '3-6mo', '6-12mo'].includes(s.eaAnniversary)) {
-    qs.push('If we renew early or extend the term before our anniversary, which of our current rates carry forward, and does that shield us from the July 2026 Microsoft 365 increase for the new term?');
+  if (s.contractType === 'ea' && s.eaTermStart === 'pre-increase') {
+    qs.push('Which products and quantities can we add at our next anniversary true-up at our locked rates, and if we extend the term, does current pricing continue until the extension ends?');
     qs.push('What Azure Monetary Commitment will you propose at auto-renewal, and what consumption period is it calculated from?');
   }
   if (s.contractType === 'ea') qs.push('If Microsoft moves us from EA to MCA-E, what replaces the automatic 3-year price lock, and will you commit that replacement to writing?');
@@ -955,12 +961,12 @@ function buildAlerts(s, tier) {
   if (s.eaPricingLevel === 'unknown' && s.contractType === 'ea') {
     alerts.push({ type: 'warning', icon: '⚠️', text: '<strong>Identify your EA Pricing Level before negotiating.</strong> Microsoft eliminated automatic volume discount levels (B/C/D) in late 2025. Ask your account team what level you are currently on — if it\'s B, C, or D, you are at risk of a 6–12% cost increase at renewal if you don\'t renegotiate explicitly.' });
   }
-  if (s.contractType === 'ea' && ['within-3mo', '3-6mo', '6-12mo'].includes(s.eaAnniversary)) {
-    const window = s.eaAnniversary === 'within-3mo' ? 'inside 3 months' : s.eaAnniversary === '3-6mo' ? '3–6 months out' : '6–12 months out';
-    alerts.push({ type: s.eaAnniversary === 'within-3mo' ? 'danger' : 'warning', icon: '📅', text: `<strong>Early-Renewal Window Open — anniversary is ${window}.</strong> Your EA holds list price at signature, so renewing early or extending the term before your anniversary can carry current pricing past the July 2026 Microsoft 365 increase instead of absorbing it at your scheduled renewal. Open this conversation before the auto-renewal proposal lands 30–90 days out — that proposal resets your Azure Monetary Commitment from trailing-12-month consumption and anchors everything after it. Treat any extension as a renegotiation: prior discounts do not carry forward on their own.` });
+  if (s.contractType === 'ea' && s.eaTermStart === 'pre-increase') {
+    const soon = s.eaAnniversary === 'within-3mo';
+    alerts.push({ type: soon ? 'warning' : 'info', icon: '📅', text: `<strong>You are still on pre-increase EA pricing — do not renew early.</strong> The July 1, 2026 Microsoft 365 increase applies at the next renewal after that date, so your term keeps current rates until it ends. Renewing early brings the increase forward. ${soon ? 'Your next anniversary is inside 3 months: plan the true-up now and add genuinely needed seats and upgrades at locked pricing.' : 'Use each remaining anniversary true-up to add genuinely needed seats at locked pricing.'} Open the renewal with the uplift quantified, before the auto-renewal proposal lands 30–90 days out.` });
   }
-  if (s.contractType === 'ea' && s.eaAnniversary === 'unknown') {
-    alerts.push({ type: 'info', icon: '📅', text: '<strong>Confirm your EA anniversary date.</strong> It determines whether an early renewal can carry your locked pricing past the July 2026 increase. Your account team or reseller can confirm it in one email, and the answer changes what you should do next.' });
+  if (s.contractType === 'ea' && (!s.eaTermStart || s.eaTermStart === 'unknown')) {
+    alerts.push({ type: 'info', icon: '📅', text: '<strong>Confirm when your EA term began.</strong> If it began before July 1, 2026, you are on pre-increase pricing until renewal and should not renew early. Your account team or reseller can confirm it in one email.' });
   }
   if (s.contractType === 'ea' && tier >= 3) {
     alerts.push({ type: 'info', icon: '🔒', text: '<strong>Your EA price lock is an asset with an expiry date.</strong> From March 2026 Microsoft began migrating EA customers on MACC plans to MCA-E ahead of renewal, and the EA is increasingly reserved for its largest accounts. MCA-E carries no automatic price lock, no locked pricing on added seats, and no fixed renewal negotiation moment. If Microsoft proposes the move, the price protection addendum is what you trade for agreeing to it — not an afterthought to paper later.' });
@@ -1010,6 +1016,7 @@ const SAMPLE_STATE = {
   ],
   "eaPricingLevel": "level-a",
   "eaAnniversary": "6-12mo",
+  "eaTermStart": "pre-increase",
   "m365Reclamation": "partial",
   "cspOpenness": "unknown",
   "supportTier": "unified",
