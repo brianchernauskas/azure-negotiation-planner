@@ -595,6 +595,11 @@ function buildTactics(s, tier) {
       desc: 'You\'re already planning Copilot adoption — make sure Microsoft knows this is contingent on a satisfactory Azure renewal. Frame it explicitly: "Our AI expansion plans are tied to Azure pricing. Help us get to the right Azure number and we can accelerate Copilot." This activates their AI adoption incentive budget.',
       impact: 'high',
     });
+    tactics.push({
+      title: 'Price the Copilot Usage Layer, Not Just the Seat',
+      desc: 'Microsoft\'s September 25, 2026 Copilot relaunch splits the bill in two. The user subscription licence covers Copilot Chat and Copilot in Word, Excel, PowerPoint, Outlook and Teams; Cowork, Code, Autopilot, long-running agents and frontier models are billed by usage through Copilot Credits, on top of the seat. Microsoft has not published credit rates. Before committing seats, get the credit rate card in writing, ask whether credits can be prepaid at a discount or drawn down against your MACC, and confirm who can raise the spending limits. Use the new admin spending policies and approval workflows from day one, so agent usage cannot run ahead of the budget the seat price was sold against.',
+      impact: 'high',
+    });
   }
 
   // Competitive leverage
